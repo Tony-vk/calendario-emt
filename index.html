@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Calendario EMT</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#fff);--tx:var(--tg-theme-text-color,#111);--sub:var(--tg-theme-hint-color,#888);
+--btn:var(--tg-theme-button-color,#534AB7);--btx:var(--tg-theme-button-text-color,#fff);--sec:var(--tg-theme-secondary-bg-color,#f1f1f1)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx);user-select:none;overflow-x:hidden}
+#tit{font-size:15px;color:var(--sub);text-align:center;margin:10px 12px 0}
+.tabs{display:flex;gap:6px;margin:10px 12px 0}
+.tab{flex:1;padding:9px;border-radius:10px;background:var(--sec);text-align:center;font-size:15px}
+.tab.on{background:var(--btn);color:var(--btx);font-weight:600}
+.cab{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 2px}
+.cab b{font-size:19px}.fl{font-size:26px;padding:4px 14px;color:var(--sub)}
+.ayuda{text-align:center;font-size:12px;color:var(--sub);margin-bottom:4px}
+#vp{overflow:hidden;touch-action:pan-y}
+#tira{display:flex;transition:transform .25s ease}
+.mes{flex:0 0 100%;padding:0 8px}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.sem{text-align:center;font-size:12px;color:var(--sub);padding:3px 0}
+.d{aspect-ratio:1/1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;
+background:var(--sec);position:relative}
+.d.x{opacity:.5}.d.l{background:#E24B4A;color:#fff}.d.v{background:#378ADD;color:#fff}.d.o{background:#639922;color:#fff}
+.d.e{background:#EF9F27;color:#412402}.d.p{background:#FAC775;color:#412402}.d.f{outline:2px dashed #378ADD;outline-offset:-3px}
+.d.sel{box-shadow:inset 0 0 0 3px var(--btn);}
+.d.sel::after{content:"✓";position:absolute;top:1px;right:4px;font-size:11px;color:var(--btn)}
+.d.l.sel::after,.d.v.sel::after,.d.o.sel::after{color:#fff}
+.d.hoy{text-decoration:underline}
+.ley{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--sub);margin:12px 12px 90px}
+.ley i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+#aviso{position:fixed;left:0;right:0;bottom:70px;text-align:center;font-size:13px;color:var(--sub)}
+#hecho{position:fixed;left:12px;right:12px;bottom:14px;padding:14px;border:0;border-radius:12px;background:var(--btn);color:var(--btx);
+font-size:16px;font-weight:600}
+</style></head><body>
+<div id="tit"></div>
+<div class="tabs" id="tabs"></div>
+<div class="cab"><span class="fl" id="ant">‹</span><b id="nom"></b><span class="fl" id="sig">›</span></div>
+<div class="ayuda">Desliza para cambiar de mes · toca los días</div>
+<div id="vp"><div id="tira"></div></div>
+<div class="ley" id="ley"></div>
+<div id="aviso"></div>
+<button id="hecho">Hecho</button>
+<script>
+/* Los datos llegan en el #hash de la dirección (no se envían a ningún servidor):
+   {t: título, i: "aaaa-mm-dd" primer día, c: un carácter por día desde i, m: [{k, n, s:[índices elegidos]}]}
+   c: "." trabajas · "l" libras · "v" vacaciones · "o" concedido · "e" en espera · "p" pendiente · "f" festivo · "-" no se puede */
+const tg = window.Telegram ? Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+let D;
+try { D = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1).replace(/-/g,"+").replace(/_/g,"/"))))); }
+catch (e) { document.body.innerHTML = "<p style='padding:20px'>No hay datos. Ábrelo desde el bot.</p>"; throw e; }
+const ini = new Date(D.i + "T12:00:00");
+const N = D.c.length;
+const fechaDe = n => { const x = new Date(ini); x.setDate(x.getDate() + n); return x; };
+const idx = f => Math.round((f - ini) / 864e5);
+const hoyI = 0;
+// Qué se puede tocar en cada modo
+const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c)};
+const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
+let modo = modos[0];
+document.getElementById("tit").textContent = D.t || "";
+const tabs = document.getElementById("tabs");
+if (modos.length > 1) modos.forEach(m => {
+  const b = document.createElement("div"); b.className = "tab"; b.textContent = m.n;
+  b.onclick = () => { modo = m; pinta(); }; m.el = b; tabs.appendChild(b);
+}); else tabs.style.display = "none";
+// Meses que cubren los datos
+const meses = [];
+for (let f = new Date(ini.getFullYear(), ini.getMonth(), 1); f <= fechaDe(N - 1); f = new Date(f.getFullYear(), f.getMonth() + 1, 1)) meses.push(f);
+let cur = 0;
+if (D.a) { const a = new Date(D.a + "T12:00:00"); cur = Math.max(0, meses.findIndex(m => m.getFullYear() === a.getFullYear() && m.getMonth() === a.getMonth())); }
+const tira = document.getElementById("tira");
+function pinta() {
+  modos.forEach(m => m.el && m.el.classList.toggle("on", m === modo));
+  tira.innerHTML = "";
+  meses.forEach(m => {
+    const div = document.createElement("div"); div.className = "mes";
+    let h = '<div class="g">' + "LMXJVSD".split("").map(x => `<div class="sem">${x}</div>`).join("");
+    const primero = (m.getDay() + 6) % 7;
+    for (let i = 0; i < primero; i++) h += "<div></div>";
+    const dias = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    for (let d = 1; d <= dias; d++) {
+      const n = idx(new Date(m.getFullYear(), m.getMonth(), d, 12));
+      const c = n >= 0 && n < N ? D.c[n] : "-";
+      let cls = "d";
+      if ("lvoep".includes(c)) cls += " " + c;
+      if (c === "f") cls += " f";
+      if (c === "-" ) cls += " x";
+      else if (!PUEDE[modo.k](c) && !modo.sel.has(n)) cls += " x";
+      if (modo.sel.has(n)) cls += " sel";
+      if (n === hoyI) cls += " hoy";
+      h += `<div class="${cls}" data-n="${n}">${d}</div>`;
+    }
+    div.innerHTML = h + "</div>"; tira.appendChild(div);
+  });
+  mueve(false); cuenta();
+}
+function mueve(anima = true) {
+  tira.style.transition = anima ? "transform .25s ease" : "none";
+  tira.style.transform = `translateX(${-cur * 100}%)`;
+  const m = meses[cur]; document.getElementById("nom").textContent = MESES[m.getMonth()] + " " + m.getFullYear();
+}
+function cuenta() {
+  let mas = 0, menos = 0;
+  modos.forEach(m => { m.sel.forEach(n => { if (!m.ini.has(n)) mas++; }); m.ini.forEach(n => { if (!m.sel.has(n)) menos++; }); });
+  document.getElementById("hecho").textContent = mas + menos ? `Hecho · ${mas ? mas + " nuevo" + (mas > 1 ? "s" : "") : ""}${mas && menos ? ", " : ""}${menos ? menos + " quitado" + (menos > 1 ? "s" : "") : ""}` : "Cerrar";
+}
+tira.addEventListener("click", ev => {
+  const el = ev.target.closest(".d"); if (!el || el.classList.contains("x") && !el.classList.contains("sel")) return;
+  const n = +el.dataset.n;
+  if (modo.sel.has(n)) modo.sel.delete(n); else modo.sel.add(n);
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+  el.classList.toggle("sel"); cuenta();
+});
+document.getElementById("ant").onclick = () => { if (cur > 0) { cur--; mueve(); } };
+document.getElementById("sig").onclick = () => { if (cur < meses.length - 1) { cur++; mueve(); } };
+// Deslizar con el dedo
+let x0 = null, y0 = 0, dx = 0;
+const vp = document.getElementById("vp");
+vp.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; tira.style.transition = "none"; }, {passive: true});
+vp.addEventListener("touchmove", e => {
+  if (x0 === null) return;
+  dx = e.touches[0].clientX - x0;
+  if (Math.abs(dx) > Math.abs(e.touches[0].clientY - y0)) tira.style.transform = `translateX(calc(${-cur * 100}% + ${dx}px))`;
+}, {passive: true});
+vp.addEventListener("touchend", () => {
+  if (x0 === null) return;
+  if (dx < -50 && cur < meses.length - 1) cur++; else if (dx > 50 && cur > 0) cur--;
+  x0 = null; mueve();
+});
+// Leyenda
+const LEY = [["#E24B4A","libras"],["#378ADD","vacaciones"],["#639922","concedido"],["#EF9F27","en espera"],["#FAC775","pendiente"]];
+document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes("lvoep"[i])).map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")
+  + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
+document.getElementById("hecho").onclick = () => {
+  const r = {};
+  modos.forEach(m => r[m.k] = {a: [...m.sel].filter(n => !m.ini.has(n)), q: [...m.ini].filter(n => !m.sel.has(n))});
+  const hay = Object.values(r).some(x => x.a.length || x.q.length);
+  if (tg && tg.sendData && hay) tg.sendData(JSON.stringify({i: D.i, r})); else if (tg) tg.close();
+  if (!tg) document.getElementById("aviso").textContent = JSON.stringify(r);
+};
+pinta();
+</script></body></html>
