@@ -139,9 +139,10 @@ tira.addEventListener("click", ev => {
   const n = +el.dataset.n;
   if (el.classList.contains("x") && !el.classList.contains("sel")) {
     if (H[n]) {  // día con turno: se enseña qué hiciste (o harás)
-      const [hs, lt, co] = H[n].split("|"), [ln, tn] = (lt || "/").split("/");
+      const [hs, lt, co, bu] = H[n].split("|"), [ln, tn] = (lt || "/").split("/");
       const txt = `${fmt(n)}${ln ? " · Línea " + ln.replace(/^0+/, "") : ""}${tn ? " · Turno " + tn : ""}\n`
         + (hs === "?" ? "" : hs.split("+").map((x, i) => (hs.includes("+") ? (i ? "2ª parte: " : "1ª parte: ") : "") + x.replace("-", " a ")).join("\n"))
+        + (bu ? "\n🚌 Autobús: " + bu.split(",").join(" y ") : "")
         + (co ? "\nCoche del cuadro: " + co.split(",").join(" y ") : "");
       if (tg && tg.showAlert) tg.showAlert(txt); else document.getElementById("aviso").textContent = txt;
     }
