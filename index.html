@@ -68,7 +68,7 @@ const fechaDe = n => { const x = new Date(ini); x.setDate(x.getDate() + n); retu
 const idx = f => Math.round((f - ini) / 864e5);
 const hoyI = 0;
 // Qué se puede tocar en cada modo
-const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c)};
+const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c)};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
 let modo = modos.find(m => m.k === new URLSearchParams(location.search).get("k")) || modos[0];
 document.getElementById("tit").textContent = D.t || "";
@@ -147,6 +147,7 @@ vp.addEventListener("touchend", () => {
 // Leyenda
 const LEY = [["#E24B4A","libras"],["#378ADD","vacaciones"],["#639922","concedido"],["#EF9F27","en espera"],["#FAC775","pendiente"]];
 document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes("lvoep"[i])).map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")
+  + (D.c.includes("f") ? '<span><i style="outline:2px dashed #378ADD;outline-offset:-2px"></i>festivo</span>' : "")
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
 // Paso 2: por cada día nuevo que buscas, qué libres das a cambio (se elige aquí mismo)
 const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
