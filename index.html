@@ -102,7 +102,7 @@ function pinta() {
       if ("lvoep".includes(c)) cls += " " + c;
       if (c === "f") cls += " f";
       if (c === "-" ) cls += " x";
-      else if ((!PUEDE[modo.k](c) || n <= hoyI) && !modo.sel.has(n)) cls += " x";
+      else if ((!PUEDE[modo.k](c) || n <= hoyI || (modo.k === "p" && H[n])) && !modo.sel.has(n)) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
       if (n === hoyI) cls += " hoy";
       if ((modo.k === "g" || modo.k === "h") && n === modo.busco) cls += " busco";
