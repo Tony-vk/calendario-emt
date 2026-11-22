@@ -18,11 +18,11 @@ body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:
 #vp{overflow:hidden;touch-action:pan-y}
 #tira{display:flex;transition:transform .25s ease}
 .mes{flex:0 0 100%;padding:0 8px}
-.g{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 .sem{text-align:center;font-size:12px;color:var(--sub);padding:3px 0}
 .d{aspect-ratio:1/1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;
 background:var(--sec);position:relative}
-.d{flex-direction:column;line-height:1.05}.d.con{font-size:14px}.hr{font-size:8.5px;font-weight:500;opacity:.85;margin-top:2px;text-align:center}
+.d{flex-direction:column;line-height:1.05}.d.con{font-size:13px;aspect-ratio:auto;min-height:100%;padding:3px 1px}.hr{font-size:8px;font-weight:500;opacity:.9;margin-top:1px;text-align:center;line-height:1.15;white-space:nowrap;overflow:hidden;max-width:100%;letter-spacing:-.2px}.hr b{font-weight:700}.pt{display:block;font-size:7px;color:#A32D2D;font-weight:700;letter-spacing:.2px}
 .d.x{opacity:.5}.d.x.con{opacity:.8}.d.l{background:#E24B4A;color:#fff}.d.v{background:#378ADD;color:#fff}.d.o{background:#639922;color:#fff}
 .d.e{background:#EF9F27;color:#412402}.d.p{background:#FAC775;color:#412402}.d.f{outline:2px dashed #378ADD;outline-offset:-3px}
 .d.sel{box-shadow:inset 0 0 0 3px var(--btn);}
@@ -108,9 +108,12 @@ function pinta() {
       if ((modo.k === "g" || modo.k === "h") && n === modo.busco) cls += " busco";
       let hr = "";
       if (H[n]) {
-        const [hs0, lt0] = H[n].split("|"), pt = hs0.split("+");
-        hr = hs0 === "?" ? `<div class="hr">T${(lt0 || "/").split("/")[1]}</div>`
-          : `<div class="hr">${pt[0].split("-")[0]}<br>${pt[pt.length - 1].split("-")[1]}${pt.length > 1 ? " ✂" : ""}</div>`;
+        // Turno (T001) y horario: si es partido, cada parte en su línea para que se vea que es partido
+        const [hs0, lt0] = H[n].split("|"), tn = (lt0 || "/").split("/")[1];
+        const corta = x => x.replace(/^0/, "");
+        const partes = hs0 === "?" ? [] : hs0.split("+").map(x => x.split("-").map(corta).join("–"));
+        hr = `<div class="hr">${tn ? "<b>T" + tn + "</b>" : ""}${partes.map(x => (tn || partes.length > 1 ? "<br>" : "") + x).join("")}`
+          + `${partes.length > 1 ? '<span class="pt">partido</span>' : ""}</div>`;
         cls += " con";
       }
       h += `<div class="${cls}" data-n="${n}">${d}${hr}</div>`;
