@@ -70,7 +70,7 @@ const hoyI = 0;
 // Qué se puede tocar en cada modo
 const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c)};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
-let modo = modos[0];
+let modo = modos.find(m => m.k === new URLSearchParams(location.search).get("k")) || modos[0];
 document.getElementById("tit").textContent = D.t || "";
 const tabs = document.getElementById("tabs");
 if (modos.length > 1) modos.forEach(m => {
