@@ -109,10 +109,10 @@ function pinta() {
       let hr = "";
       if (H[n]) {
         // Turno (T001) y horario: si es partido, cada parte en su línea para que se vea que es partido
-        const [hs0, lt0] = H[n].split("|"), tn = (lt0 || "/").split("/")[1];
+        const [hs0, lt0] = H[n].split("|"), [ln, tn] = (lt0 || "/").split("/");
         const corta = x => x.replace(/^0/, "");
         const partes = hs0 === "?" ? [] : hs0.split("+").map(x => x.split("-").map(corta).join("–"));
-        hr = `<div class="hr">${tn ? "<b>T" + tn + "</b>" : ""}${partes.map(x => (tn || partes.length > 1 ? "<br>" : "") + x).join("")}`
+        hr = `<div class="hr">${tn ? "<b>" + (ln ? "L" + ln.replace(/^0+/, "") + " " : "") + "T" + tn + "</b>" : ""}${partes.map(x => (tn || partes.length > 1 ? "<br>" : "") + x).join("")}`
           + `${partes.length > 1 ? '<span class="pt">partido</span>' : ""}</div>`;
         cls += " con";
       }
@@ -139,8 +139,10 @@ tira.addEventListener("click", ev => {
   const n = +el.dataset.n;
   if (el.classList.contains("x") && !el.classList.contains("sel")) {
     if (H[n]) {  // día con turno: se enseña qué hiciste (o harás)
-      const [hs, lt] = H[n].split("|");
-      const txt = `Turno del ${fmt(n)}${lt ? " (línea/turno " + lt + ")" : ""}:\n` + (hs === "?" ? "" : hs.split("+").map(x => x.replace("-", " a ")).join("\n"));
+      const [hs, lt, co] = H[n].split("|"), [ln, tn] = (lt || "/").split("/");
+      const txt = `${fmt(n)}${ln ? " · Línea " + ln.replace(/^0+/, "") : ""}${tn ? " · Turno " + tn : ""}\n`
+        + (hs === "?" ? "" : hs.split("+").map((x, i) => (hs.includes("+") ? (i ? "2ª parte: " : "1ª parte: ") : "") + x.replace("-", " a ")).join("\n"))
+        + (co ? "\nCoche del cuadro: " + co.split(",").join(" y ") : "");
       if (tg && tg.showAlert) tg.showAlert(txt); else document.getElementById("aviso").textContent = txt;
     }
     return;
