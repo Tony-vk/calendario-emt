@@ -22,7 +22,8 @@ body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:
 .sem{text-align:center;font-size:12px;color:var(--sub);padding:3px 0}
 .d{aspect-ratio:1/1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;
 background:var(--sec);position:relative}
-.d.x{opacity:.5}.d.l{background:#E24B4A;color:#fff}.d.v{background:#378ADD;color:#fff}.d.o{background:#639922;color:#fff}
+.d{flex-direction:column;line-height:1.05}.d.con{font-size:14px}.hr{font-size:8.5px;font-weight:500;opacity:.85;margin-top:2px;text-align:center}
+.d.x{opacity:.5}.d.x.con{opacity:.8}.d.l{background:#E24B4A;color:#fff}.d.v{background:#378ADD;color:#fff}.d.o{background:#639922;color:#fff}
 .d.e{background:#EF9F27;color:#412402}.d.p{background:#FAC775;color:#412402}.d.f{outline:2px dashed #378ADD;outline-offset:-3px}
 .d.sel{box-shadow:inset 0 0 0 3px var(--btn);}
 .d.sel::after{content:"✓";position:absolute;top:1px;right:4px;font-size:11px;color:var(--btn)}
@@ -66,7 +67,9 @@ const ini = new Date(D.i + "T12:00:00");
 const N = D.c.length;
 const fechaDe = n => { const x = new Date(ini); x.setDate(x.getDate() + n); return x; };
 const idx = f => Math.round((f - ini) / 864e5);
-const hoyI = 0;
+const hoyI = D.hoy || 0;
+const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
+const H = D.h || {};  // horas del turno de cada día (si ya está nombrado)
 // Qué se puede tocar en cada modo
 const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c)};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
@@ -99,11 +102,17 @@ function pinta() {
       if ("lvoep".includes(c)) cls += " " + c;
       if (c === "f") cls += " f";
       if (c === "-" ) cls += " x";
-      else if (!PUEDE[modo.k](c) && !modo.sel.has(n)) cls += " x";
+      else if ((!PUEDE[modo.k](c) || n <= hoyI) && !modo.sel.has(n)) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
       if (n === hoyI) cls += " hoy";
       if ((modo.k === "g" || modo.k === "h") && n === modo.busco) cls += " busco";
-      h += `<div class="${cls}" data-n="${n}">${d}</div>`;
+      let hr = "";
+      if (H[n]) {
+        const pt = H[n].split("|")[0].split("+");
+        hr = `<div class="hr">${pt[0].split("-")[0]}<br>${pt[pt.length - 1].split("-")[1]}${pt.length > 1 ? " ✂" : ""}</div>`;
+        cls += " con";
+      }
+      h += `<div class="${cls}" data-n="${n}">${d}${hr}</div>`;
     }
     div.innerHTML = h + "</div>"; tira.appendChild(div);
   });
@@ -122,8 +131,16 @@ function cuenta() {
   document.getElementById("hecho").textContent = mas + menos ? `Hecho · ${mas ? mas + " nuevo" + (mas > 1 ? "s" : "") : ""}${mas && menos ? ", " : ""}${menos ? menos + " quitado" + (menos > 1 ? "s" : "") : ""}` : "Cerrar";
 }
 tira.addEventListener("click", ev => {
-  const el = ev.target.closest(".d"); if (!el || el.classList.contains("x") && !el.classList.contains("sel")) return;
+  const el = ev.target.closest(".d"); if (!el) return;
   const n = +el.dataset.n;
+  if (el.classList.contains("x") && !el.classList.contains("sel")) {
+    if (H[n]) {  // día con turno: se enseña qué hiciste (o harás)
+      const [hs, lt] = H[n].split("|");
+      const txt = `Turno del ${fmt(n)}${lt ? " (línea/turno " + lt + ")" : ""}:\n` + hs.split("+").map(x => x.replace("-", " a ")).join("\n");
+      if (tg && tg.showAlert) tg.showAlert(txt); else document.getElementById("aviso").textContent = txt;
+    }
+    return;
+  }
   if (modo.sel.has(n)) modo.sel.delete(n); else modo.sel.add(n);
   if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
   el.classList.toggle("sel"); cuenta();
@@ -150,7 +167,6 @@ document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes
   + (D.c.includes("f") ? '<span><i style="outline:2px dashed #378ADD;outline-offset:-2px"></i>festivo</span>' : "")
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
 // Paso 2: por cada día nuevo que buscas, qué libres das a cambio (se elige aquí mismo)
-const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
 let pendientes = null, resultado = null; const dar = {}, doy = {};
 function envia() {
   if (tg && tg.sendData) tg.sendData(JSON.stringify({i: D.i, r: resultado, g: dar, h: doy}));
