@@ -43,14 +43,16 @@ font-size:16px;font-weight:600}
 <div id="aviso"></div>
 <button id="hecho">Hecho</button>
 <script>
-/* Los datos llegan en el #hash de la dirección (no se envían a ningún servidor):
+/* Los datos llegan en ?d= de la dirección (solo códigos de días, sin nombres):
    {t: título, i: "aaaa-mm-dd" primer día, c: un carácter por día desde i, m: [{k, n, s:[índices elegidos]}]}
    c: "." trabajas · "l" libras · "v" vacaciones · "o" concedido · "e" en espera · "p" pendiente · "f" festivo · "-" no se puede */
 const tg = window.Telegram ? Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); }
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 let D;
-try { D = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1).replace(/-/g,"+").replace(/_/g,"/"))))); }
+// Los datos van en ?d=... (Telegram usa el #... para lo suyo)
+const crudo = new URLSearchParams(location.search).get("d") || location.hash.slice(1).split("&")[0];
+try { D = JSON.parse(decodeURIComponent(escape(atob(crudo.replace(/-/g,"+").replace(/_/g,"/"))))); }
 catch (e) { document.body.innerHTML = "<p style='padding:20px'>No hay datos. Ábrelo desde el bot.</p>"; throw e; }
 const ini = new Date(D.i + "T12:00:00");
 const N = D.c.length;
