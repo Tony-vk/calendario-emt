@@ -33,12 +33,16 @@ background:var(--sec);position:relative}
 #aviso{position:fixed;left:0;right:0;bottom:70px;text-align:center;font-size:13px;color:var(--sub)}
 #otro{position:fixed;left:12px;right:12px;bottom:76px;padding:12px;border:0;border-radius:12px;background:var(--sec);color:var(--tx);font-size:15px;display:none}
 .d.busco{outline:3px solid #639922;outline-offset:-3px}
+#grp{display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 12px 0;font-size:13px;color:var(--sub);align-items:center}
+.chip{padding:6px 11px;border-radius:16px;background:var(--sec);color:var(--tx);font-size:14px}
+.chip.on{background:var(--btn);color:var(--btx);font-weight:600}
 #tit.paso{font-size:17px;color:var(--tx);font-weight:600}
 #hecho{position:fixed;left:12px;right:12px;bottom:14px;padding:14px;border:0;border-radius:12px;background:var(--btn);color:var(--btx);
 font-size:16px;font-weight:600}
 </style></head><body>
 <div id="tit"></div>
 <div class="tabs" id="tabs"></div>
+<div id="grp"></div>
 <div class="cab"><span class="fl" id="ant">‹</span><b id="nom"></b><span class="fl" id="sig">›</span></div>
 <div class="ayuda">Desliza para cambiar de mes · toca los días</div>
 <div id="vp"><div id="tira"></div></div>
@@ -64,7 +68,7 @@ const fechaDe = n => { const x = new Date(ini); x.setDate(x.getDate() + n); retu
 const idx = f => Math.round((f - ini) / 864e5);
 const hoyI = 0;
 // Qué se puede tocar en cada modo
-const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l"};
+const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c)};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
 let modo = modos[0];
 document.getElementById("tit").textContent = D.t || "";
@@ -98,7 +102,7 @@ function pinta() {
       else if (!PUEDE[modo.k](c) && !modo.sel.has(n)) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
       if (n === hoyI) cls += " hoy";
-      if (modo.k === "g" && n === modo.busco) cls += " busco";
+      if ((modo.k === "g" || modo.k === "h") && n === modo.busco) cls += " busco";
       h += `<div class="${cls}" data-n="${n}">${d}</div>`;
     }
     div.innerHTML = h + "</div>"; tira.appendChild(div);
@@ -111,6 +115,7 @@ function mueve(anima = true) {
   const m = meses[cur]; document.getElementById("nom").textContent = MESES[m.getMonth()] + " " + m.getFullYear();
 }
 function cuenta() {
+  if (modo.k === "h") { document.getElementById("hecho").textContent = modo.sel.size ? `Quiero ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} a cambio · Seguir` : "Cualquier día (lo habláis) · Seguir"; return; }
   if (modo.k === "g") { document.getElementById("hecho").textContent = modo.sel.size ? `Doy ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} · Seguir` : "Elige tus libres o toca el botón de arriba"; return; }
   let mas = 0, menos = 0;
   modos.forEach(m => { m.sel.forEach(n => { if (!m.ini.has(n)) mas++; }); m.ini.forEach(n => { if (!m.sel.has(n)) menos++; }); });
@@ -145,29 +150,43 @@ document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
 // Paso 2: por cada día nuevo que buscas, qué libres das a cambio (se elige aquí mismo)
 const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
-let pendientes = null, resultado = null; const dar = {};
+let pendientes = null, resultado = null; const dar = {}, doy = {};
 function envia() {
-  if (tg && tg.sendData) tg.sendData(JSON.stringify({i: D.i, r: resultado, g: dar}));
-  else document.getElementById("aviso").textContent = JSON.stringify({r: resultado, g: dar});
+  if (tg && tg.sendData) tg.sendData(JSON.stringify({i: D.i, r: resultado, g: dar, h: doy}));
+  else document.getElementById("aviso").textContent = JSON.stringify({r: resultado, g: dar, h: doy});
 }
+const grp = document.getElementById("grp");
+function chips(n) {  // para quién es el libre que das: todos o un grupo
+  grp.innerHTML = "Para:" + ["", ...(D.gr || [])].map(g => `<span class="chip${modo.gr === g ? " on" : ""}" data-g="${g}">${g ? "Grupo " + g : "Todos"}</span>`).join("");
+}
+grp.onclick = ev => { const c = ev.target.closest(".chip"); if (!c) return; modo.gr = c.dataset.g; chips(); };
 function siguiente() {
   if (!pendientes.length) return envia();
-  const n = pendientes.shift();
-  modo = {k: "g", busco: n, ini: new Set(), sel: new Set((D.p || {})[n] || [])};
+  const {k, n} = pendientes.shift();
   const t = document.getElementById("tit"); t.className = "paso";
-  t.textContent = `¿Qué das por el ${fmt(n)}? Toca tus libres 🔴`;
-  tabs.style.display = "none"; document.getElementById("otro").style.display = "block";
+  tabs.style.display = "none";
+  if (k === "q") {
+    modo = {k: "g", busco: n, ini: new Set(), sel: new Set((D.p || {})[n] || [])};
+    t.textContent = `¿Qué das por el ${fmt(n)}? Toca tus libres 🔴`;
+    document.getElementById("otro").style.display = "block"; grp.style.display = "none";
+  } else {
+    modo = {k: "h", busco: n, ini: new Set(), sel: new Set(), gr: ""};
+    t.textContent = `Das el ${fmt(n)}. ¿Qué día quieres a cambio? Toca días que trabajas`;
+    document.getElementById("otro").style.display = "none"; grp.style.display = "flex"; chips();
+  }
   const f = fechaDe(n); cur = Math.max(0, meses.findIndex(m => m.getFullYear() === f.getFullYear() && m.getMonth() === f.getMonth()));
   pinta(); window.scrollTo(0, 0);
 }
 document.getElementById("otro").onclick = () => { dar[modo.busco] = []; siguiente(); };
 document.getElementById("hecho").onclick = () => {
   if (modo.k === "g") { if (!modo.sel.size) return; dar[modo.busco] = [...modo.sel]; return siguiente(); }
+  if (modo.k === "h") { doy[modo.busco] = {q: [...modo.sel], gr: modo.gr}; return siguiente(); }
   const r = {};
   modos.forEach(m => r[m.k] = {a: [...m.sel].filter(n => !m.ini.has(n)), q: [...m.ini].filter(n => !m.sel.has(n))});
   const hay = Object.values(r).some(x => x.a.length || x.q.length);
   if (!hay) { if (tg) tg.close(); return; }
-  resultado = r; pendientes = r.q ? [...r.q.a].sort((a, b) => a - b) : [];
+  resultado = r;
+  pendientes = [...(r.q ? r.q.a : []).map(n => ({k: "q", n})), ...(r.o ? r.o.a : []).map(n => ({k: "o", n}))].sort((a, b) => a.n - b.n);
   siguiente();
 };
 pinta();
