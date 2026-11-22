@@ -28,9 +28,12 @@ background:var(--sec);position:relative}
 .d.sel::after{content:"✓";position:absolute;top:1px;right:4px;font-size:11px;color:var(--btn)}
 .d.l.sel::after,.d.v.sel::after,.d.o.sel::after{color:#fff}
 .d.hoy{text-decoration:underline}
-.ley{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--sub);margin:12px 12px 90px}
+.ley{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--sub);margin:12px 12px 150px}
 .ley i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 #aviso{position:fixed;left:0;right:0;bottom:70px;text-align:center;font-size:13px;color:var(--sub)}
+#otro{position:fixed;left:12px;right:12px;bottom:76px;padding:12px;border:0;border-radius:12px;background:var(--sec);color:var(--tx);font-size:15px;display:none}
+.d.busco{outline:3px solid #639922;outline-offset:-3px}
+#tit.paso{font-size:17px;color:var(--tx);font-weight:600}
 #hecho{position:fixed;left:12px;right:12px;bottom:14px;padding:14px;border:0;border-radius:12px;background:var(--btn);color:var(--btx);
 font-size:16px;font-weight:600}
 </style></head><body>
@@ -41,6 +44,7 @@ font-size:16px;font-weight:600}
 <div id="vp"><div id="tira"></div></div>
 <div class="ley" id="ley"></div>
 <div id="aviso"></div>
+<button id="otro">🔴 Cualquiera de mis libres (lo hablamos)</button>
 <button id="hecho">Hecho</button>
 <script>
 /* Los datos llegan en ?d= de la dirección (solo códigos de días, sin nombres):
@@ -60,7 +64,7 @@ const fechaDe = n => { const x = new Date(ini); x.setDate(x.getDate() + n); retu
 const idx = f => Math.round((f - ini) / 864e5);
 const hoyI = 0;
 // Qué se puede tocar en cada modo
-const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c)};
+const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l"};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
 let modo = modos[0];
 document.getElementById("tit").textContent = D.t || "";
@@ -94,6 +98,7 @@ function pinta() {
       else if (!PUEDE[modo.k](c) && !modo.sel.has(n)) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
       if (n === hoyI) cls += " hoy";
+      if (modo.k === "g" && n === modo.busco) cls += " busco";
       h += `<div class="${cls}" data-n="${n}">${d}</div>`;
     }
     div.innerHTML = h + "</div>"; tira.appendChild(div);
@@ -106,6 +111,7 @@ function mueve(anima = true) {
   const m = meses[cur]; document.getElementById("nom").textContent = MESES[m.getMonth()] + " " + m.getFullYear();
 }
 function cuenta() {
+  if (modo.k === "g") { document.getElementById("hecho").textContent = modo.sel.size ? `Doy ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} · Seguir` : "Elige tus libres o toca el botón de arriba"; return; }
   let mas = 0, menos = 0;
   modos.forEach(m => { m.sel.forEach(n => { if (!m.ini.has(n)) mas++; }); m.ini.forEach(n => { if (!m.sel.has(n)) menos++; }); });
   document.getElementById("hecho").textContent = mas + menos ? `Hecho · ${mas ? mas + " nuevo" + (mas > 1 ? "s" : "") : ""}${mas && menos ? ", " : ""}${menos ? menos + " quitado" + (menos > 1 ? "s" : "") : ""}` : "Cerrar";
@@ -137,12 +143,32 @@ vp.addEventListener("touchend", () => {
 const LEY = [["#E24B4A","libras"],["#378ADD","vacaciones"],["#639922","concedido"],["#EF9F27","en espera"],["#FAC775","pendiente"]];
 document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes("lvoep"[i])).map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
+// Paso 2: por cada día nuevo que buscas, qué libres das a cambio (se elige aquí mismo)
+const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
+let pendientes = null, resultado = null; const dar = {};
+function envia() {
+  if (tg && tg.sendData) tg.sendData(JSON.stringify({i: D.i, r: resultado, g: dar}));
+  else document.getElementById("aviso").textContent = JSON.stringify({r: resultado, g: dar});
+}
+function siguiente() {
+  if (!pendientes.length) return envia();
+  const n = pendientes.shift();
+  modo = {k: "g", busco: n, ini: new Set(), sel: new Set((D.p || {})[n] || [])};
+  const t = document.getElementById("tit"); t.className = "paso";
+  t.textContent = `¿Qué das por el ${fmt(n)}? Toca tus libres 🔴`;
+  tabs.style.display = "none"; document.getElementById("otro").style.display = "block";
+  const f = fechaDe(n); cur = Math.max(0, meses.findIndex(m => m.getFullYear() === f.getFullYear() && m.getMonth() === f.getMonth()));
+  pinta(); window.scrollTo(0, 0);
+}
+document.getElementById("otro").onclick = () => { dar[modo.busco] = []; siguiente(); };
 document.getElementById("hecho").onclick = () => {
+  if (modo.k === "g") { if (!modo.sel.size) return; dar[modo.busco] = [...modo.sel]; return siguiente(); }
   const r = {};
   modos.forEach(m => r[m.k] = {a: [...m.sel].filter(n => !m.ini.has(n)), q: [...m.ini].filter(n => !m.sel.has(n))});
   const hay = Object.values(r).some(x => x.a.length || x.q.length);
-  if (tg && tg.sendData && hay) tg.sendData(JSON.stringify({i: D.i, r})); else if (tg) tg.close();
-  if (!tg) document.getElementById("aviso").textContent = JSON.stringify(r);
+  if (!hay) { if (tg) tg.close(); return; }
+  resultado = r; pendientes = r.q ? [...r.q.a].sort((a, b) => a - b) : [];
+  siguiente();
 };
 pinta();
 </script></body></html>
