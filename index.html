@@ -38,6 +38,10 @@ background:var(--sec);position:relative}
 .chip{padding:6px 11px;border-radius:16px;background:var(--sec);color:var(--tx);font-size:14px}
 .chip.on{background:var(--btn);color:var(--btx);font-weight:600}
 #tit.paso{font-size:17px;color:var(--tx);font-weight:600}
+#nom{padding:4px 10px;border-radius:10px;background:var(--sec)}#nom::after{content:" ▾";font-size:13px;color:var(--sub)}
+#sal{display:none;position:fixed;inset:0;background:var(--bg);z-index:9;padding:14px 12px 90px;overflow-y:auto}
+#sal h3{margin:14px 4px 8px;font-size:17px}.mg{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.mg div{padding:12px 0;border-radius:10px;background:var(--sec);text-align:center;font-size:15px}.mg div.on{background:var(--btn);color:var(--btx);font-weight:600}
 #hecho{position:fixed;left:12px;right:12px;bottom:14px;padding:14px;border:0;border-radius:12px;background:var(--btn);color:var(--btx);
 font-size:16px;font-weight:600}
 </style></head><body>
@@ -45,7 +49,8 @@ font-size:16px;font-weight:600}
 <div class="tabs" id="tabs"></div>
 <div id="grp"></div>
 <div class="cab"><span class="fl" id="ant">‹</span><b id="nom"></b><span class="fl" id="sig">›</span></div>
-<div class="ayuda">Desliza para cambiar de mes · toca los días</div>
+<div class="ayuda">Desliza para cambiar de mes · toca el mes para saltar a otro</div>
+<div id="sal"></div>
 <div id="vp"><div id="tira"></div></div>
 <div class="ley" id="ley"></div>
 <div id="aviso"></div>
@@ -153,6 +158,18 @@ tira.addEventListener("click", ev => {
   if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
   el.classList.toggle("sel"); cuenta();
 });
+// Saltar directamente a un mes/año (tocando el nombre del mes)
+const sal = document.getElementById("sal");
+document.getElementById("nom").onclick = () => {
+  let h = "", anio = null;
+  meses.forEach((m, i) => {
+    if (m.getFullYear() !== anio) { if (anio !== null) h += "</div>"; anio = m.getFullYear(); h += `<h3>${anio}</h3><div class="mg">`; }
+    h += `<div data-i="${i}"${i === cur ? ' class="on"' : ""}>${MESES[m.getMonth()].slice(0, 3)}</div>`;
+  });
+  sal.innerHTML = h + "</div>"; sal.style.display = "block";
+  const on = sal.querySelector(".on"); if (on) on.scrollIntoView({block: "center"});
+};
+sal.onclick = ev => { const el = ev.target.closest("[data-i]"); sal.style.display = "none"; if (el) { cur = +el.dataset.i; mueve(false); } };
 document.getElementById("ant").onclick = () => { if (cur > 0) { cur--; mueve(); } };
 document.getElementById("sig").onclick = () => { if (cur < meses.length - 1) { cur++; mueve(); } };
 // Deslizar con el dedo
