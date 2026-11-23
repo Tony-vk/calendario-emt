@@ -71,7 +71,7 @@ const hoyI = D.hoy || 0;
 const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
 const H = D.h || {};  // horas del turno de cada día (si ya está nombrado)
 // Qué se puede tocar en cada modo
-const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c)};
+const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
 let modo = modos.find(m => m.k === new URLSearchParams(location.search).get("k")) || modos[0];
 document.getElementById("tit").textContent = D.t || "";
@@ -129,6 +129,7 @@ function mueve(anima = true) {
 }
 function cuenta() {
   if (modo.k === "h") { document.getElementById("hecho").textContent = modo.sel.size ? `Quiero ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} a cambio · Seguir` : "Cualquier día (lo habláis) · Seguir"; return; }
+  if (modo.k === "c") { const k = modo.sel.size; document.getElementById("hecho").textContent = k ? `Ver quién libra · ${k} día${k > 1 ? "s" : ""}` : "Toca los días que quieres cambiar"; return; }
   if (modo.k === "g") { document.getElementById("hecho").textContent = modo.sel.size ? `Doy ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} · Seguir` : "Elige tus libres o toca el botón de arriba"; return; }
   let mas = 0, menos = 0;
   modos.forEach(m => { m.sel.forEach(n => { if (!m.ini.has(n)) mas++; }); m.ini.forEach(n => { if (!m.sel.has(n)) menos++; }); });
