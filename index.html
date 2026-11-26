@@ -79,7 +79,7 @@ const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, 
 const H = D.h || {};
 const Y = D.y || {};
 const K = D.k || {};  // 🔁 cambios: "b" buscas, "d" das (propuestos en Cambia Libranza), "h" hecho
-const KT = {b: "🔁 busco", d: "🔁 doy", h: "🔁 cambiado", t: "🔁 turno"};
+const KT = {b: "🔁 busco", d: "🔁 doy", h: "🔁 cambiado", t: "🔁 turno", s: "📎 sellada"};
 const R = D.r || {};  // ⭐ días que te conviene pedir: [índice de inicio del puente, fin, cuántos pides]  // tipo de libre pedido o concedido (L26, L06…)  // horas del turno de cada día (si ya está nombrado)
 // Qué se puede tocar en cada modo
 const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
@@ -154,6 +154,13 @@ tira.addEventListener("click", ev => {
   const el = ev.target.closest(".d"); if (!el) return;
   const n = +el.dataset.n;
   const cd = D.c[n];
+  // 📎 Día con la petición sellada de un cambio: verla
+  if (K[n] === "s" && tg && tg.showPopup && tg.sendData) {
+    tg.showPopup({title: `📎 Cambio del ${fmt(n)}`, message: "Tienes guardada la petición sellada de este cambio.",
+      buttons: [{id: "v", type: "default", text: "📎 Ver la petición"}, {type: "cancel"}]},
+      id => { if (id === "v") tg.sendData(JSON.stringify({i: D.i, ver: n})); });
+    return;
+  }
   // ✅ Concedido o ⏳ en espera: qué hacer con él (cambiarlo con un compañero o anularlo)
   if ("oe".includes(cd) && n > hoyI && !modo.sel.has(n) && "pc".includes(modo.k) && tg && tg.showPopup) {
     const ti = Y[n] ? ` (${Y[n]})` : "";
@@ -232,6 +239,7 @@ const LEY = [["#E24B4A","libras"],["#378ADD","vacaciones"],["#639922","concedido
 document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes("lvoep"[i])).map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")
   + (Object.keys(R).length ? '<span>⭐ te conviene pedir</span>' : "")
   + (Object.keys(K).length ? '<span>🔁 cambio propuesto o hecho</span>' : "")
+  + (Object.values(K).includes("s") ? '<span>📎 petición sellada (tócala)</span>' : "")
   + (D.c.includes("w") ? '<span><i style="box-shadow:inset 4px 0 0 #E24B4A;background:var(--sec)"></i>trabajas en tu libre</span>' : "")
   + (D.c.includes("f") ? '<span><i style="outline:2px dashed #378ADD;outline-offset:-2px"></i>festivo</span>' : "")
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
