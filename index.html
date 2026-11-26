@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Calendario EMT</title>
+<title>Mi calendario</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--bg:var(--tg-theme-bg-color,#fff);--tx:var(--tg-theme-text-color,#111);--sub:var(--tg-theme-hint-color,#888);
@@ -24,6 +24,8 @@ body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:
 background:var(--sec);position:relative}
 .d{flex-direction:column;line-height:1.05}.d.con{font-size:13px;aspect-ratio:auto;min-height:100%;padding:3px 1px}.hr{font-size:8px;font-weight:500;opacity:.9;margin-top:1px;text-align:center;line-height:1.15;white-space:nowrap;overflow:hidden;max-width:100%;letter-spacing:-.2px}.hr b{font-weight:700}.pt{display:block;font-size:7px;color:#A32D2D;font-weight:700;letter-spacing:.2px}
 .d.x{opacity:.5}.d.x.con{opacity:.8}.d.l{background:#E24B4A;color:#fff}.d.v{background:#378ADD;color:#fff}.d.o{background:#639922;color:#fff}
+.d.w{box-shadow:inset 4px 0 0 #E24B4A}.ti{display:block;font-size:9px;font-weight:700;letter-spacing:.2px}
+.d.r::before{content:"⭐";position:absolute;top:0;left:2px;font-size:9px}
 .d.e{background:#EF9F27;color:#412402}.d.p{background:#FAC775;color:#412402}.d.f{outline:2px dashed #378ADD;outline-offset:-3px}
 .d.sel{box-shadow:inset 0 0 0 3px var(--btn);}
 .d.sel::after{content:"✓";position:absolute;top:1px;right:4px;font-size:11px;color:var(--btn)}
@@ -74,7 +76,9 @@ const fechaDe = n => { const x = new Date(ini); x.setDate(x.getDate() + n); retu
 const idx = f => Math.round((f - ini) / 864e5);
 const hoyI = D.hoy || 0;
 const fmt = n => { const f = fechaDe(n); return String(f.getDate()).padStart(2, "0") + "/" + String(f.getMonth() + 1).padStart(2, "0"); };
-const H = D.h || {};  // horas del turno de cada día (si ya está nombrado)
+const H = D.h || {};
+const Y = D.y || {};
+const R = D.r || {};  // ⭐ días que te conviene pedir: [índice de inicio del puente, fin, cuántos pides]  // tipo de libre pedido o concedido (L26, L06…)  // horas del turno de cada día (si ya está nombrado)
 // Qué se puede tocar en cada modo
 const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
@@ -104,12 +108,14 @@ function pinta() {
       const n = idx(new Date(m.getFullYear(), m.getMonth(), d, 12));
       const c = n >= 0 && n < N ? D.c[n] : "-";
       let cls = "d";
-      if ("lvoep".includes(c)) cls += " " + c;
+      if ("lvoepw".includes(c)) cls += " " + c;
       if (c === "f") cls += " f";
       if (c === "-" ) cls += " x";
-      else if ((!PUEDE[modo.k](c) || n <= hoyI || (modo.k === "p" && H[n])) && !modo.sel.has(n)) cls += " x";
+      else if ((!PUEDE[modo.k](c) || n <= hoyI || (modo.k === "p" && H[n])) && !modo.sel.has(n)
+               && !("oe".includes(c) && n > hoyI && "pc".includes(modo.k))) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
       if (n === hoyI) cls += " hoy";
+      if (R[n] && (modo.k === "p" || modo.k === "c")) cls += " r";
       if ((modo.k === "g" || modo.k === "h") && n === modo.busco) cls += " busco";
       let hr = "";
       if (H[n]) {
@@ -121,7 +127,8 @@ function pinta() {
           + `${partes.length > 1 ? '<span class="pt">partido</span>' : ""}</div>`;
         cls += " con";
       }
-      h += `<div class="${cls}" data-n="${n}">${d}${hr}</div>`;
+      const ti = Y[n] ? `<span class="ti">${Y[n]}</span>` : (c === "w" && !hr ? '<span class="ti">trabajas</span>' : "");
+      h += `<div class="${cls}" data-n="${n}">${d}${ti}${hr}</div>`;
     }
     div.innerHTML = h + "</div>"; tira.appendChild(div);
   });
@@ -143,6 +150,24 @@ function cuenta() {
 tira.addEventListener("click", ev => {
   const el = ev.target.closest(".d"); if (!el) return;
   const n = +el.dataset.n;
+  const cd = D.c[n];
+  // ✅ Concedido o ⏳ en espera: qué hacer con él (cambiarlo con un compañero o anularlo)
+  if ("oe".includes(cd) && n > hoyI && !modo.sel.has(n) && "pc".includes(modo.k) && tg && tg.showPopup) {
+    const ti = Y[n] ? ` (${Y[n]})` : "";
+    const bts = [{id: "c", type: "default", text: "🤝 Cambiar con compañero"}];
+    if (cd === "o") bts.push({id: "a", type: "destructive", text: "🗑 Anularlo"});
+    bts.push({type: "cancel"});
+    tg.showPopup({title: cd === "o" ? `✅ Concedido el ${fmt(n)}${ti}` : `⏳ En espera el ${fmt(n)}${ti}`,
+      message: cd === "o" ? "Lo puedes cambiar con un compañero o anularlo (el libre vuelve a quedar disponible)."
+                          : "Mientras esperas, puedes buscar a un compañero que te lo cambie.", buttons: bts},
+      id => {
+        if (id !== "c" && id !== "a") return;
+        const m = modos.find(x => x.k === id); if (!m) return;
+        m.sel.add(n); modo = m; pinta();
+        if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      });
+    return;
+  }
   if (el.classList.contains("x") && !el.classList.contains("sel")) {
     if (H[n]) {  // día con turno: se enseña qué hiciste (o harás)
       const [hs, lt, co, bu] = H[n].split("|"), [ln, tn] = (lt || "/").split("/");
@@ -152,6 +177,19 @@ tira.addEventListener("click", ev => {
         + (co ? "\nCoche del cuadro: " + co.split(",").join(" y ") : "");
       if (tg && tg.showAlert) tg.showAlert(txt); else document.getElementById("aviso").textContent = txt;
     }
+    return;
+  }
+  if (R[n] && !modo.sel.has(n) && (modo.k === "p" || modo.k === "c") && tg && tg.showPopup) {
+    const [a, b, k] = R[n], largo = b - a + 1;
+    tg.showPopup({title: "⭐ Te conviene pedirlo",
+      message: `Pidiendo ${k > 1 ? k + " días (este y los siguientes)" : "solo este"} libras del ${fmt(a)} al ${fmt(b)}: ${largo} días seguidos.`,
+      buttons: [{id: "p", type: "default", text: "📌 Pedir por generado"}, {id: "c", type: "default", text: "🤝 Cambiar con compañero"}, {type: "cancel"}]},
+      id => {
+        if (id !== "p" && id !== "c") return;
+        const m = modos.find(x => x.k === id); if (!m) return;
+        m.sel.add(n); modo = m; pinta();
+        if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      });
     return;
   }
   if (modo.sel.has(n)) modo.sel.delete(n); else modo.sel.add(n);
@@ -189,6 +227,8 @@ vp.addEventListener("touchend", () => {
 // Leyenda
 const LEY = [["#E24B4A","libras"],["#378ADD","vacaciones"],["#639922","concedido"],["#EF9F27","en espera"],["#FAC775","pendiente"]];
 document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes("lvoep"[i])).map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")
+  + (Object.keys(R).length ? '<span>⭐ te conviene pedir</span>' : "")
+  + (D.c.includes("w") ? '<span><i style="box-shadow:inset 4px 0 0 #E24B4A;background:var(--sec)"></i>trabajas en tu libre</span>' : "")
   + (D.c.includes("f") ? '<span><i style="outline:2px dashed #378ADD;outline-offset:-2px"></i>festivo</span>' : "")
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
 // Paso 2: por cada día nuevo que buscas, qué libres das a cambio (se elige aquí mismo)
