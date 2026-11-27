@@ -82,7 +82,7 @@ const K = D.k || {};  // 🔁 cambios: "b" buscas, "d" das (propuestos en Cambia
 const KT = {b: "🔁 busco", d: "🔁 doy", h: "🔁 cambiado", t: "🔁 turno", s: "📎 sellada"};
 const R = D.r || {};  // ⭐ días que te conviene pedir: [índice de inicio del puente, fin, cuántos pides]  // tipo de libre pedido o concedido (L26, L06…)  // horas del turno de cada día (si ya está nombrado)
 // Qué se puede tocar en cada modo
-const PUEDE = {q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
+const PUEDE = {v: c => false, q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
 let modo = modos.find(m => m.k === new URLSearchParams(location.search).get("k")) || modos[0];
 document.getElementById("tit").textContent = D.t || "";
@@ -113,7 +113,7 @@ function pinta() {
       if ("lvoepw".includes(c)) cls += " " + c;
       if (c === "f") cls += " f";
       if (c === "-" ) cls += " x";
-      else if ((!PUEDE[modo.k](c) || n <= hoyI || (modo.k === "p" && H[n])) && !modo.sel.has(n)
+      else if (modo.k !== "v" && (!PUEDE[modo.k](c) || n <= hoyI || (modo.k === "p" && H[n])) && !modo.sel.has(n)
                && !("oe".includes(c) && n > hoyI && "pc".includes(modo.k))) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
       if (n === hoyI) cls += " hoy";
@@ -143,6 +143,7 @@ function mueve(anima = true) {
   const m = meses[cur]; document.getElementById("nom").textContent = MESES[m.getMonth()] + " " + m.getFullYear();
 }
 function cuenta() {
+  if (modo.k === "v") { document.getElementById("hecho").style.display = "none"; return; }  // 👀 solo ver (calendario para la familia)
   if (modo.k === "h") { document.getElementById("hecho").textContent = modo.sel.size ? `Quiero ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} a cambio · Seguir` : "Cualquier día (lo habláis) · Seguir"; return; }
   if (modo.k === "c") { const k = modo.sel.size; document.getElementById("hecho").textContent = k ? `Ver quién libra · ${k} día${k > 1 ? "s" : ""}` : "Toca los días que quieres cambiar"; return; }
   if (modo.k === "g") { document.getElementById("hecho").textContent = modo.sel.size ? `Doy ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} · Seguir` : "Elige tus libres o toca el botón de arriba"; return; }
@@ -185,7 +186,7 @@ tira.addEventListener("click", ev => {
       });
     return;
   }
-  if (el.classList.contains("x") && !el.classList.contains("sel")) {
+  if ((modo.k === "v" || el.classList.contains("x")) && !el.classList.contains("sel")) {
     if (H[n]) {  // día con turno: se enseña qué hiciste (o harás)
       const [hs, lt, co, bu] = H[n].split("|"), [ln, tn] = (lt || "/").split("/");
       const txt = `${fmt(n)}${ln ? " · Línea " + ln.replace(/^0+/, "") : ""}${tn ? " · Turno " + tn : ""}\n`
