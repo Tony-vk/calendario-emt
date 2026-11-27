@@ -159,14 +159,15 @@ tira.addEventListener("click", ev => {
   const KI = D.ki || {};  // «Cambio de turno con Luis (nº 67890)»
   if (K[n] === "s" && tg && tg.showPopup && tg.sendData) {
     tg.showPopup({title: `📎 Cambio del ${fmt(n)}`, message: (KI[n] ? KI[n] + ".\n" : "") + "Tienes guardada la petición sellada de este cambio.",
-      buttons: [{id: "v", type: "default", text: "📎 Ver la petición"}, {type: "cancel"}]},
-      id => { if (id === "v") tg.sendData(JSON.stringify({i: D.i, ver: n})); });
+      buttons: [{id: "v", type: "default", text: "📎 Ver la petición"}].concat(D.t === "Mi Copiloto" ? [{id: "q", type: "destructive", text: "🗑 Quitar"}] : []).concat([{type: "cancel"}])},
+      id => { if (id === "v") tg.sendData(JSON.stringify({i: D.i, ver: n})); if (id === "q") tg.sendData(JSON.stringify({i: D.i, quita: n})); });
     return;
   }
   // 🔁 Cambio ya cerrado con un compañero: con quién y de qué
-  if (K[n] === "h" && KI[n] && tg && tg.showPopup) {
-    tg.showPopup({title: `🔁 Cambio del ${fmt(n)}`, message: KI[n] + ".\nLa petición sellada, cuando te la manden, se guarda aquí.",
-      buttons: [{type: "ok"}]});
+  if (K[n] === "h" && (KI[n] || D.t === "Mi Copiloto") && tg && tg.showPopup && tg.sendData) {
+    tg.showPopup({title: `🔁 Cambio del ${fmt(n)}`, message: (KI[n] ? KI[n] + ".\nLa petición sellada, cuando te la manden, se guarda aquí." : "Tienes un cambio este día."),
+      buttons: [{type: "ok"}].concat(D.t === "Mi Copiloto" ? [{id: "q", type: "destructive", text: "🗑 Quitar"}] : [])},
+      id => { if (id === "q") tg.sendData(JSON.stringify({i: D.i, quita: n})); });
     return;
   }
   // ✅ Concedido o ⏳ en espera: qué hacer con él (cambiarlo con un compañero o anularlo)
