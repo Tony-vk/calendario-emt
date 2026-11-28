@@ -10,7 +10,7 @@
 body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx);user-select:none;overflow-x:hidden}
 #tit{font-size:15px;color:var(--sub);text-align:center;margin:10px 12px 0}
 .tabs{display:flex;gap:6px;margin:10px 12px 0}
-.tab{flex:1;padding:9px;border-radius:10px;background:var(--sec);text-align:center;font-size:15px}
+.tab{flex:1;padding:9px 2px;border-radius:10px;background:var(--sec);text-align:center;font-size:14px;white-space:nowrap}
 .tab.on{background:var(--btn);color:var(--btx);font-weight:600}
 .cab{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 2px}
 .cab b{font-size:19px}.fl{font-size:26px;padding:4px 14px;color:var(--sub)}
@@ -44,6 +44,14 @@ background:var(--sec);position:relative}
 #sal{display:none;position:fixed;inset:0;background:var(--bg);z-index:9;padding:14px 12px 90px;overflow-y:auto}
 #sal h3{margin:14px 4px 8px;font-size:17px}.mg{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
 .mg div{padding:12px 0;border-radius:10px;background:var(--sec);text-align:center;font-size:15px}.mg div.on{background:var(--btn);color:var(--btx);font-weight:600}
+.nn{position:absolute;top:0;right:2px;font-size:9px}
+#ed{display:none;position:fixed;inset:0;background:var(--bg);z-index:10;padding:16px 14px 20px;overflow-y:auto}
+#ed h3{margin:4px 0 12px;font-size:18px}
+.nota{display:flex;align-items:center;gap:8px;background:var(--sec);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:15px}
+.nota span{flex:1;word-break:break-word}.nota b{font-size:18px;color:#E24B4A;padding:0 4px}
+#edt{width:100%;min-height:90px;border-radius:10px;border:1px solid var(--sec);background:var(--sec);color:var(--tx);font-size:16px;padding:10px;font-family:inherit}
+.edb{display:flex;gap:8px;margin-top:10px}.edb button{flex:1;padding:13px;border:0;border-radius:12px;font-size:16px;font-weight:600}
+#eda{background:var(--sec);color:var(--tx)}#edok{background:var(--btn);color:var(--btx)}
 #hecho{position:fixed;left:12px;right:12px;bottom:14px;padding:14px;border:0;border-radius:12px;background:var(--btn);color:var(--btx);
 font-size:16px;font-weight:600}
 </style></head><body>
@@ -53,6 +61,9 @@ font-size:16px;font-weight:600}
 <div class="cab"><span class="fl" id="ant">‹</span><b id="nom"></b><span class="fl" id="sig">›</span></div>
 <div class="ayuda">Desliza para cambiar de mes · toca el mes para saltar a otro</div>
 <div id="sal"></div>
+<div id="ed"><h3 id="edh"></h3><div id="edl"></div>
+<textarea id="edt" maxlength="200" placeholder="Escribe una nota para este día (cita médica, cumpleaños, recoger a los niños…)"></textarea>
+<div class="edb"><button id="eda">➕ Añadir otra</button><button id="edok">Listo</button></div></div>
 <div id="vp"><div id="tira"></div></div>
 <div class="ley" id="ley"></div>
 <div id="aviso"></div>
@@ -80,9 +91,11 @@ const H = D.h || {};
 const Y = D.y || {};
 const K = D.k || {};  // 🔁 cambios: "b" buscas, "d" das (propuestos en Cambia Libranza), "h" hecho
 const KT = {b: "🔁 busco", d: "🔁 doy", h: "🔁 cambiado", t: "🔁 turno", s: "📎 sellada"};
+const NOTAS = {}; Object.entries(D.no || {}).forEach(([n, v]) => NOTAS[n] = v.slice());  // 📝 notas de cada día
+const notasCambio = new Set();  // días cuyas notas has tocado
 const R = D.r || {};  // ⭐ días que te conviene pedir: [índice de inicio del puente, fin, cuántos pides]  // tipo de libre pedido o concedido (L26, L06…)  // horas del turno de cada día (si ya está nombrado)
 // Qué se puede tocar en cada modo
-const PUEDE = {v: c => false, q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
+const PUEDE = {n: c => true, v: c => false, q: c => ".epf".includes(c), o: c => c === "l", p: c => ".f".includes(c), g: c => c === "l", h: c => ".epf".includes(c), a: c => "oep".includes(c), c: c => c !== "-"};
 const modos = D.m.map(m => ({k: m.k, n: m.n, ini: new Set(m.s), sel: new Set(m.s)}));
 let modo = modos.find(m => m.k === new URLSearchParams(location.search).get("k")) || modos[0];
 document.getElementById("tit").textContent = D.t || "";
@@ -112,7 +125,8 @@ function pinta() {
       let cls = "d";
       if ("lvoepw".includes(c)) cls += " " + c;
       if (c === "f") cls += " f";
-      if (c === "-" ) cls += " x";
+      if (modo.k === "n") { if (n < 0 || n >= N) cls += " x"; }
+      else if (c === "-" ) cls += " x";
       else if (modo.k !== "v" && (!PUEDE[modo.k](c) || n <= hoyI || (modo.k === "p" && H[n])) && !modo.sel.has(n)
                && !("oe".includes(c) && n > hoyI && "pc".includes(modo.k))) cls += " x";
       if (modo.sel.has(n)) cls += " sel";
@@ -131,7 +145,8 @@ function pinta() {
       }
       const ti = Y[n] ? `<span class="ti">${Y[n]}</span>` : K[n] ? `<span class="ti">${KT[K[n]]}</span>`
                : (c === "w" && !hr ? '<span class="ti">trabajas</span>' : "");
-      h += `<div class="${cls}" data-n="${n}">${d}${ti}${hr}</div>`;
+      const nn = (NOTAS[n] || []).length ? '<span class="nn">📝</span>' : "";
+      h += `<div class="${cls}" data-n="${n}">${nn}${d}${ti}${hr}</div>`;
     }
     div.innerHTML = h + "</div>"; tira.appendChild(div);
   });
@@ -143,6 +158,7 @@ function mueve(anima = true) {
   const m = meses[cur]; document.getElementById("nom").textContent = MESES[m.getMonth()] + " " + m.getFullYear();
 }
 function cuenta() {
+  if (modo.k === "n") { const k = notasCambio.size; document.getElementById("hecho").textContent = k ? `Guardar notas · ${k} día${k > 1 ? "s" : ""}` : "Toca un día para apuntar una nota"; return; }
   if (modo.k === "v") { document.getElementById("hecho").style.display = "none"; return; }  // 👀 solo ver (calendario para la familia)
   if (modo.k === "h") { document.getElementById("hecho").textContent = modo.sel.size ? `Quiero ${modo.sel.size} día${modo.sel.size > 1 ? "s" : ""} a cambio · Seguir` : "Cualquier día (lo habláis) · Seguir"; return; }
   if (modo.k === "c") { const k = modo.sel.size; document.getElementById("hecho").textContent = k ? `Ver quién libra · ${k} día${k > 1 ? "s" : ""}` : "Toca los días que quieres cambiar"; return; }
@@ -155,6 +171,7 @@ tira.addEventListener("click", ev => {
   const el = ev.target.closest(".d"); if (!el) return;
   const n = +el.dataset.n;
   const cd = D.c[n];
+  if (modo.k === "n") { if (n >= 0 && n < N) abreNotas(n); return; }
   // 📎 Día con la petición sellada de un cambio: verla
   const KI = D.ki || {};  // «Cambio de turno con Luis (nº 67890)»
   if (K[n] === "s" && tg && tg.showPopup && tg.sendData) {
@@ -193,7 +210,8 @@ tira.addEventListener("click", ev => {
       const txt = `${fmt(n)}${ln ? " · Línea " + ln.replace(/^0+/, "") : ""}${tn ? " · Turno " + tn : ""}\n`
         + (hs === "?" ? "" : hs.split("+").map((x, i) => (hs.includes("+") ? (i ? "2ª parte: " : "1ª parte: ") : "") + x.replace("-", " a ")).join("\n"))
         + (bu ? "\n🚌 Autobús: " + bu.split(",").join(" y ") : "")
-        + (co ? "\nCoche del cuadro: " + co.split(",").join(" y ") : "");
+        + (co ? "\nCoche del cuadro: " + co.split(",").join(" y ") : "")
+        + ((NOTAS[n] || []).length ? "\n📝 " + NOTAS[n].join("\n📝 ") : "");
       if (tg && tg.showAlert) tg.showAlert(txt); else document.getElementById("aviso").textContent = txt;
     }
     return;
@@ -251,12 +269,39 @@ document.getElementById("ley").innerHTML = LEY.filter(([, n], i) => D.c.includes
   + (Object.values(K).includes("s") ? '<span>📎 petición sellada (tócala)</span>' : "")
   + (D.c.includes("w") ? '<span><i style="box-shadow:inset 4px 0 0 #E24B4A;background:var(--sec)"></i>trabajas en tu libre</span>' : "")
   + (D.c.includes("f") ? '<span><i style="outline:2px dashed #378ADD;outline-offset:-2px"></i>festivo</span>' : "")
+  + (D.m.some(m => m.k === "n") ? '<span>📝 tiene notas</span>' : "")
   + '<span><i style="box-shadow:inset 0 0 0 2px var(--btn)"></i>elegido</span>';
+// 📝 Editor de notas de un día (sin comandos: se escribe aquí y se guarda al pulsar el botón de abajo)
+const ed = document.getElementById("ed"), edt = document.getElementById("edt");
+let edN = null;
+const DS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+function pintaNotas() {
+  const l = NOTAS[edN] || [];
+  document.getElementById("edl").innerHTML = l.map((x, i) => `<div class="nota"><span>📝 ${x.replace(/[<>&]/g, "")}</span><b data-i="${i}">✕</b></div>`).join("")
+    || '<div style="color:var(--sub);font-size:14px;margin-bottom:10px">Este día no tiene notas.</div>';
+}
+function abreNotas(n) {
+  edN = n; const f = fechaDe(n);
+  document.getElementById("edh").textContent = `📝 ${DS[f.getDay()]} ${fmt(n)}`;
+  edt.value = ""; pintaNotas(); ed.style.display = "block";
+  setTimeout(() => edt.focus(), 150);
+}
+function apuntaNota() {
+  const t = edt.value.trim().slice(0, 200); if (!t) return false;
+  (NOTAS[edN] = NOTAS[edN] || []).push(t); notasCambio.add(edN); edt.value = ""; pintaNotas(); return true;
+}
+document.getElementById("edl").onclick = ev => {
+  const b = ev.target.closest("[data-i]"); if (!b) return;
+  NOTAS[edN].splice(+b.dataset.i, 1); notasCambio.add(edN); pintaNotas();
+};
+document.getElementById("eda").onclick = () => { apuntaNota(); edt.focus(); };
+document.getElementById("edok").onclick = () => { apuntaNota(); ed.style.display = "none"; edt.blur(); pinta(); };
 // Paso 2: por cada día nuevo que buscas, qué libres das a cambio (se elige aquí mismo)
 let pendientes = null, resultado = null; const dar = {}, doy = {};
 function envia() {
-  if (tg && tg.sendData) tg.sendData(JSON.stringify({i: D.i, r: resultado, g: dar, h: doy}));
-  else document.getElementById("aviso").textContent = JSON.stringify({r: resultado, g: dar, h: doy});
+  const nt = {}; notasCambio.forEach(n => nt[n] = NOTAS[n] || []);
+  if (tg && tg.sendData) tg.sendData(JSON.stringify({i: D.i, r: resultado, g: dar, h: doy, nt}));
+  else document.getElementById("aviso").textContent = JSON.stringify({r: resultado, g: dar, h: doy, nt});
 }
 const grp = document.getElementById("grp");
 function chips(n) {  // para quién es el libre que das: todos o un grupo
@@ -286,7 +331,8 @@ document.getElementById("hecho").onclick = () => {
   if (modo.k === "h") { doy[modo.busco] = {q: [...modo.sel], gr: modo.gr}; return siguiente(); }
   const r = {};
   modos.forEach(m => r[m.k] = {a: [...m.sel].filter(n => !m.ini.has(n)), q: [...m.ini].filter(n => !m.sel.has(n))});
-  const hay = Object.values(r).some(x => x.a.length || x.q.length);
+  delete r.n;
+  const hay = Object.values(r).some(x => x.a.length || x.q.length) || notasCambio.size;
   if (!hay) { if (tg) tg.close(); return; }
   resultado = r;
   pendientes = [...(r.q ? r.q.a : []).map(n => ({k: "q", n})), ...(r.o ? r.o.a : []).map(n => ({k: "o", n}))].sort((a, b) => a.n - b.n);
